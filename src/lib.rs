@@ -7,6 +7,7 @@ extern crate serde_json;
 
 mod serde_pikkr;
 
+use std::fmt;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -127,6 +128,12 @@ pub struct Executor {
     train_num: usize
 }
 
+impl fmt::Display for Executor {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "file_path: {}, parser_name: {}, queries: {} print: {} train_num: {}", self.file_path, self.parser_name, self.queries, self.print, self.train_num)
+    }
+}
+
 impl Executor {
     pub fn new(args: &[String]) -> Executor {
         Executor {
@@ -139,7 +146,7 @@ impl Executor {
     }
 
     pub fn run(&self) {
-        println!("file_path: {}, parser_name: {}, queries: {} print: {} train_num: {}", self.file_path, self.parser_name, self.queries, self.print, self.train_num);
+        println!("{}", self);
         match self.parser_name.as_ref() {
            "json" => {
                let queries: Vec<_> = self.queries.split(",").collect();
@@ -164,18 +171,29 @@ impl Executor {
     fn parse<T: Parser>(&self, mut parser: T) {
         let f = File::open(&self.file_path).expect("");
         let f = BufReader::new(&f);
-        let mut num = 0;
-        let mut size = 0;
-        let mut r = 0;
-        let mut elapsed = Duration::new(0, 0);
+        let mut result = ParseResult::default();
         for (_, l) in f.lines().enumerate() {
             let l = l.unwrap();
-            let res = stopwatch(|| parser.parse(&l, self.print));
-            num += 1;
-            size += l.len();
-            r += res.0;
-            elapsed.add_assign(res.1);
+            let (r, elapsed) = stopwatch(|| parser.parse(&l, self.print));
+            result.num += 1;
+            result.size += l.len();
+            result.r += r;
+            result.elapsed.add_assign(elapsed);
         }
-        println!("num: {}, size: {}, r: {}, elapsed: {:?}, average size: {}, average elapsed: {:?}, throughput (mb/sec): {:.4}", num, size, r, elapsed, size / num, elapsed.div(num as u32), (size as f64 / (elapsed.as_secs() as f64 + (elapsed.subsec_nanos() as u64 as f64) / 1000000000f64) / 1024f64 / 1024f64));
+        println!("{}", result);
     }
+}
+
+#[derive(Debug, Default)]
+pub struct ParseResult {
+    num: usize,
+    size: usize,
+    r: usize,
+    elapsed: Duration,
+}
+
+impl fmt::Display for ParseResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "num: {}, size: {}, r: {}, elapsed: {:?}, average size: {}, average elapsed: {:?}, throughput (mb/sec): {:.4}", self.num, self.size, self.r, self.elapsed, self.size / self.num, self.elapsed.div(self.num as u32), (self.size as f64 / (self.elapsed.as_secs() as f64 + (self.elapsed.subsec_nanos() as u64 as f64) / 1000000000f64) / 1024f64 / 1024f64))
+   }
 }
