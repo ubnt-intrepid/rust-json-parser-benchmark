@@ -9,8 +9,7 @@ mod serde_pikkr;
 
 use std::fmt;
 use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
+use std::io::{self, BufRead, BufReader};
 use std::ops::{AddAssign, Div};
 use std::str;
 use std::time::{Duration, Instant};
@@ -145,38 +144,38 @@ impl Executor {
         }
     }
 
-    pub fn run(&self) {
+    pub fn run(&self) -> io::Result<()> {
+        let f = File::open(&self.file_path).map(BufReader::new)?;
+        let lines = f.lines().filter_map(Result::ok);
         println!("{}", self);
         match self.parser_name.as_ref() {
            "json" => {
                let queries: Vec<_> = self.queries.split(",").collect();
                let parser = JsonParser::new(&queries).expect("failed to construct queries");
-               self.parse(parser)
+               self.parse(lines, parser)
            },
            "serde_json" => {
                let queries: Vec<_> = self.queries.split(",").collect();
                let p = serde_pikkr::Pikkr::new(&queries);
-               self.parse(SerdeJsonParser { pikkr: p })
+               self.parse(lines, SerdeJsonParser { pikkr: p })
            }
            "pikkr" => {
                let queries: Vec<_> = self.queries.split(",").map(str::as_bytes).collect();
                let p = pikkr::Pikkr::new(&queries, self.train_num).unwrap();
                let parser = PikkrParser{pikkr: p};
-               self.parse(parser)
+               self.parse(lines, parser)
            },
             _ => (),
-        };
+        }
+        Ok(())
     }
 
-    fn parse<T: Parser>(&self, mut parser: T) {
-        let f = File::open(&self.file_path).expect("");
-        let f = BufReader::new(&f);
+    fn parse<I: IntoIterator<Item=String>, T: Parser>(&self, lines: I, mut parser: T) {
         let mut result = ParseResult::default();
-        for (_, l) in f.lines().enumerate() {
-            let l = l.unwrap();
-            let (r, elapsed) = stopwatch(|| parser.parse(&l, self.print));
+        for line in lines {
+            let (r, elapsed) = stopwatch(|| parser.parse(&line, self.print));
             result.num += 1;
-            result.size += l.len();
+            result.size += line.len();
             result.r += r;
             result.elapsed.add_assign(elapsed);
         }

@@ -6,5 +6,5 @@ use rjpb::*;
 fn main() {
     let args: Vec<String> = env::args().collect();
     let executor = Executor::new(&args);
-    executor.run();
+    executor.run().expect("");
 }
