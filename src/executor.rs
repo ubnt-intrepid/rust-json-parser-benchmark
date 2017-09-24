@@ -2,10 +2,10 @@ use targets::Parser;
 use targets::json::JsonParser;
 use targets::pikkr::PikkrParser;
 use targets::serde_json::SerdeJsonParser;
+use targets::mison::MisonParser;
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::str;
 use std::time::{Duration, Instant};
 
 
@@ -55,6 +55,10 @@ impl Executor {
                 let parser = PikkrParser::new(&queries, self.train_num).unwrap();
                 self.parse(parser)
             }
+            "mison" => {
+                let parser = MisonParser::new(&queries).unwrap();
+                self.parse(parser)
+            }
             _ => (),
         };
     }
@@ -74,21 +78,21 @@ impl Executor {
             r += res.0;
             elapsed += res.1;
         }
+        fn as_secs(t: Duration) -> f64 {
+            t.as_secs() as f64 + t.subsec_nanos() as f64 * 1e-9
+        }
         print!(
-            "num: {}, size: {}, r: {}, elapsed: {:?}, ",
+            "num: {}, size: {}, r: {}, elapsed: {}, ",
             num,
             size,
             r,
-            elapsed,
+            as_secs(elapsed),
         );
         println!(
-            "average size: {}, average elapsed: {:?}, throughput (mb/sec): {:.4}",
+            "average size: {}, average elapsed: {}, throughput (mb/sec): {:.4}",
             size / num,
-            elapsed / (num as u32),
-            (size as f64 /
-                (elapsed.as_secs() as f64 +
-                    (elapsed.subsec_nanos() as u64 as f64) / 1000000000f64) / 1024f64 /
-                1024f64)
+            as_secs(elapsed / (num as u32)),
+            (size as f64 / as_secs(elapsed) / 1024f64 / 1024f64)
         );
     }
 }

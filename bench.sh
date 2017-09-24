@@ -10,6 +10,7 @@ function bench() {
 	./target/release/rjpb $FILE json       $queries $PRINT
 	./target/release/rjpb $FILE pikkr      $queries $PRINT
 	./target/release/rjpb $FILE pikkr      $queries $PRINT $TRAIN_NUM
+	./target/release/rjpb $FILE mison      $queries $PRINT
 }
 
 echo "build"
